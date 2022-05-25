@@ -2,7 +2,7 @@
 
 '''
 	takes a singl url or list of urls and payloads
-	scraps urls and params from forms
+	scrapes urls and params from forms
 	injects payloads into the params
 	returns a JSON obj of a list of dictionaries, each dict contains the data of one form - the hostname, url, method, original_inputs(key-value pairs) and injected_inputs(inputes with payloads)
 '''
@@ -111,7 +111,7 @@ def inject(form_data, original_inputs, payloads, POST_data_str, curr_input_name=
 
 def get_forms_data(url, json_data=False, headers=None, cookies=None):
 	'''
-		Scraps all forms from a page
+		Scrapes all forms from a page
 
 		url:  Duh
 		json_data:  Determines if the forms_data list is returned as json
@@ -173,7 +173,7 @@ def inject_payloads(url, payloads_param, json_data=False, headers=None, cookies=
 
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description="A script to scrap forms and inject payloads")
+	parser = argparse.ArgumentParser(description="A script to scrape forms and inject payloads")
 	parser.add_argument("-u", dest="url", help="Target url")
 	parser.add_argument("-f", dest="urls_file", help="Path to a list of URLs")
 	parser.add_argument("-p", dest="payloads_file", help="Path to a list of payloads. If not specified, discovered forms data will be returned")
