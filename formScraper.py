@@ -124,7 +124,8 @@ def get_forms_data(url, json_data=False, headers=None, cookies=None):
 	html_forms = re.findall(r'<form.*?<\/form>', r.text, flags=re.S)
 	forms_data = []
 	for form in html_forms:
-		action = re.findall(r'(?<=action=).*?(?=\s|\/>|>)', form)[0].strip("\"'")
+		action_match = re.findall(r'(?<=action=).*?(?=\s|\/>|>)', form)
+		action = action_match[0].strip("\"'") if action_match else url
 		parsed_url = urllib.parse.urlparse(url)
 		scheme = urllib.parse.urlparse(url).scheme
 		hostname = urllib.parse.urlparse(url).netloc
