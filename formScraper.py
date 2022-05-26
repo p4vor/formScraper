@@ -18,10 +18,10 @@ import json
 
 
 def get_form_inputs(html_form):
-	inputs = re.findall(r'(<input.*?>|<textarea.*?>|<select.*?>)', html_form)
+	inputs = re.findall(r'(<input.*?>|<textarea.*?>|<select.*?>|<button.*?>)', html_form)
 	input_data = {}
 	for input in inputs:
-		if not re.search(r'type=\'?\"?submit', input):		# Skip input if type=submit
+		if re.search(r'name=\'?\"?[^\'\"]+?\'?\"?(?=\s|\/>|>)', input):		# check if input has name attr
 			input_name = re.findall(r'(?<=name=).*?(?=\s|\/>|>)', input)[0].strip("\"'")
 			input_value_matches = re.findall(r'(?<=value=).*?(?=\s|\/>|>)', input)
 			input_value = input_value_matches[0].strip("\"'") if len(input_value_matches) else ""
@@ -62,20 +62,20 @@ def convert_cookies_list_to_dict(cookies_list):
 	return convert_list_of_str_to_dict(cookies_list, '=')
 
 
-def inject(form_data, original_inputs, payloads, POST_data_str, curr_input_name=None):
+def inject(form_data, original_inputs, payloads, request_data_str, curr_input_name=None):
 	'''
 		Injects all payloads into one form's inputs
 
 		form_data:  the data of the target form
 		original_inputs:  A dict of the original inputs of the target form
 		payloads:  A list of payloads
-		POST_data_str: 	Determines if the POST data is returned as a str
+		request_data_str: 	Determines if the request data is returned as a str
 		curr_input_name:  The name of the input to be injected -
 		 				  If present only this input will be injected with payloads
 	'''
 	for payload in payloads:
-		if POST_data_str:			# if POST data should be a string
-			POST_data_list = []
+		if request_data_str:			# if request data should be a string
+			request_data_list = []
 			for input_name, input_val in original_inputs:
 				is_csrf_input = re.search(r'csrf', input_name)
 				
@@ -84,29 +84,29 @@ def inject(form_data, original_inputs, payloads, POST_data_str, curr_input_name=
 					break
 
 				if is_csrf_input or (curr_input_name and curr_input_name != input_name):
-					POST_data_list.append(f"{input_name}={input_val}")
+					request_data_list.append(f"{input_name}={input_val}")
 				else:
-					POST_data_list.append(f"{input_name}={payload.strip()}")
+					request_data_list.append(f"{input_name}={payload.strip()}")
 
-			if POST_data_list:
-				form_data['injected_inputs'].append("&".join(POST_data_list))
-		else:						# if POST data should be a dict
-			POST_data_dict = {}
+			if request_data_list:
+				form_data['injected_inputs'].append("&".join(request_data_list))
+		else:						# if request data should be a dict
+			request_data_dict = {}
 			for input_name, input_val in original_inputs:
 				is_csrf_input = re.search(r'csrf', input_name)
 
 				# Break if curr_input_name and input_name are 'csrf' input
 				if is_csrf_input and curr_input_name == input_name:
-					POST_data_dict = {}
+					request_data_dict = {}
 					break
 
 				if is_csrf_input or (curr_input_name and curr_input_name != input_name):
-					POST_data_dict.update({input_name: input_val})
+					request_data_dict.update({input_name: input_val})
 				else:
-					POST_data_dict.update({input_name: payload.strip()})
+					request_data_dict.update({input_name: payload.strip()})
 
-			if POST_data_dict:
-				form_data['injected_inputs'].append(POST_data_dict)
+			if request_data_dict:
+				form_data['injected_inputs'].append(request_data_dict)
 
 
 def get_forms_data(url, json_data=False, headers=None, cookies=None):
@@ -143,7 +143,7 @@ def get_forms_data(url, json_data=False, headers=None, cookies=None):
 		return json.dumps(forms_data)
 
 
-def inject_payloads(url, payloads_param, json_data=False, headers=None, cookies=None, POST_data_str=False, one_input=False):
+def inject_payloads(url, payloads_param, json_data=False, headers=None, cookies=None, request_data_str=False, one_input=False):
 	'''
 		Injects all payloads into all scraped forms' inputs
 
@@ -152,7 +152,7 @@ def inject_payloads(url, payloads_param, json_data=False, headers=None, cookies=
 		json_data:  Determines if the forms_data list is returned as json
 		headers:  A dictionary or list of headers
 		cookies:  A dictionary or list of cookies
-		POST_data_str: 	Determines if the POST data is returned as a str
+		request_data_str: 	Determines if the request data is returned as a str
 		one_input:  To inject each payload into one input at a time
 	'''
 	payloads = payloads_param if type(payloads_param) == type([]) else open(payloads_param, 'r').readlines()
@@ -162,9 +162,9 @@ def inject_payloads(url, payloads_param, json_data=False, headers=None, cookies=
 		original_inputs = form_data['original_inputs'].items()
 		if one_input:
 			for input_name, input_val in original_inputs:
-				inject(form_data, original_inputs, payloads, POST_data_str, curr_input_name=input_name)
+				inject(form_data, original_inputs, payloads, request_data_str, curr_input_name=input_name)
 		else:
-			inject(form_data, original_inputs, payloads, POST_data_str)
+			inject(form_data, original_inputs, payloads, request_data_str)
 
 	if not json_data:
 		return forms_data
@@ -219,7 +219,7 @@ if __name__ == '__main__':
 
 
 '''
-ex:  output from inject_payloads() function when "POST_data_str" is False
+ex:  output from inject_payloads() function when "request_data_str" is False
 [
 	{
 		'hostname': 'localhost', 
