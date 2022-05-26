@@ -15,19 +15,37 @@ import re
 import urllib
 from termcolor import colored
 import json
+import copy
 
 
 def get_form_inputs(html_form):
 	inputs = re.findall(r'(<input.*?>|<textarea.*?>|<select.*?>|<button.*?>)', html_form)
-	input_data = {}
+	inputs_data = {}
+	multiple_submit = []			# in case there's multiple submit inputs/buttons, then we have multiple forms
 	for input in inputs:
 		if re.search(r'name=\'?\"?[^\'\"]+?\'?\"?(?=\s|\/>|>)', input):		# check if input has name attr
 			input_name = re.findall(r'(?<=name=).*?(?=\s|\/>|>)', input)[0].strip("\"'")
+			input_type_matches = re.findall(r'(?<=type=).*?(?=\s|\/>|>)', input)
+			input_type = input_type_matches[0].strip("\"'") if input_type_matches else ""
 			input_value_matches = re.findall(r'(?<=value=).*?(?=\s|\/>|>)', input)
 			input_value = input_value_matches[0].strip("\"'") if len(input_value_matches) else ""
-			input_data.update({input_name: input_value})
 
-	return input_data
+			if input_type == 'submit' and bool(inputs_data.get(input_name)):		# check for multiple "submit" 
+				multiple_submit.append({input_name: input_value})
+			else:			# if normal input or first "submit" input
+				inputs_data.update({input_name: input_value})
+
+		if multiple_submit:
+			multiple_forms_data = [inputs_data]
+			inputs_data_copy = copy.copy(inputs_data)
+			for submit_input in multiple_submit:
+				for submit_name, submit_val in submit_input.items():
+					inputs_data_copy.update({submit_name: submit_val})
+					multiple_forms_data.append(inputs_data_copy)
+
+			return multiple_forms_data
+
+	return [inputs_data]
 
 
 def get_form_method(form, inputs):
@@ -129,13 +147,13 @@ def get_forms_data(url, json_data=False, headers=None, cookies=None):
 		parsed_url = urllib.parse.urlparse(url)
 		scheme = urllib.parse.urlparse(url).scheme
 		hostname = urllib.parse.urlparse(url).netloc
-		inputs = get_form_inputs(form)
-		forms_data.append({
-			'hostname': hostname,
-			'url': action if re.search(hostname, action) else urllib.parse.urljoin(scheme+'://'+hostname, action),
-			'method': get_form_method(form, inputs),
-			'original_inputs': inputs
-		})
+		for inputs in get_form_inputs(form):			# One form could have multiple "submit" inputs, which means multiple forms
+			forms_data.append({
+				'hostname': hostname,
+				'url': action if re.search(hostname, action) else urllib.parse.urljoin(scheme+'://'+hostname, action),
+				'method': get_form_method(form, inputs),
+				'original_inputs': inputs
+			})
 
 	if not json_data:
 		return forms_data
